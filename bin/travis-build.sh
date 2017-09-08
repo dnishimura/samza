@@ -18,7 +18,7 @@
 
 set -e
 
-echo "Is PR? ${TRAVIS_PULL_REQUEST}"
+echo "Pull Request: ${TRAVIS_PULL_REQUEST}"
 echo "Branch: ${TRAVIS_BRANCH}"
 
 if [ "${TRAVIS_PULL_REQUEST}" = "false" ]; then
