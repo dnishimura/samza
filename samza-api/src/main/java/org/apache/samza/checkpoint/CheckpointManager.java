@@ -26,6 +26,11 @@ import org.apache.samza.container.TaskName;
  * implementation-specific location.
  */
 public interface CheckpointManager {
+  /**
+   * Bootstrap required streams needed by the checkpoint manager.
+   */
+  default void init() { }
+
   void start();
 
   /**

@@ -23,6 +23,7 @@ package org.apache.samza.coordinator
 import java.util
 import java.util.concurrent.atomic.AtomicReference
 
+import org.apache.samza.checkpoint.CheckpointManagerFactory
 import org.apache.samza.config.ClusterManagerConfig
 import org.apache.samza.config.JobConfig
 import org.apache.samza.config.JobConfig.Config2Job
@@ -91,16 +92,16 @@ object JobModelManager extends Logging {
     info("Registering coordinator system stream producer.")
     coordinatorSystemProducer.register(SOURCE)
 
-    val config = coordinatorSystemConsumer.getConfig
-    info("Got config: %s" format config)
-    val changelogManager = new ChangelogPartitionManager(coordinatorSystemProducer, coordinatorSystemConsumer, SOURCE)
-    changelogManager.start()
-
     val localityManager = new LocalityManager(coordinatorSystemProducer, coordinatorSystemConsumer)
     // We don't need to start() localityManager as they share the same instances with checkpoint and changelog managers.
     // TODO: This code will go away with refactoring - SAMZA-678
 
     localityManager.start()
+    
+    val config = coordinatorSystemConsumer.getConfig
+    info("Got config: %s" format config)
+    val changelogManager = new ChangelogPartitionManager(coordinatorSystemProducer, coordinatorSystemConsumer, SOURCE)
+    changelogManager.start()
 
     // Map the name of each system to the corresponding SystemAdmin
     val systemAdmins = getSystemAdmins(config)
@@ -292,6 +293,13 @@ object JobModelManager extends Logging {
     }).toMap
     systemAdmins
   }
+
+  /** TODO: Move **/
+//  def createCheckpointStream(config: Config) = {
+//    val checkpointMgrFactory = Util.getObj[CheckpointManagerFactory](config.getCheckpointManagerFactory().get)
+//    val checkpointMgr = checkpointMgrFactory.getCheckpointManager(config, new MetricsRegistryMap())
+//    checkpointMgr.init()
+//  }
 
   def createChangeLogStreams(config: StorageConfig, changeLogPartitions: Int) {
     val changeLogSystemStreams = config

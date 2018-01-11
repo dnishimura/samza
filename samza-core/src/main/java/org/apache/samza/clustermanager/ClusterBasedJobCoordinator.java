@@ -21,10 +21,13 @@ package org.apache.samza.clustermanager;
 import com.google.common.annotations.VisibleForTesting;
 import java.util.Map;
 import java.util.Set;
+import java.util.stream.Collectors;
+import org.apache.commons.lang3.StringUtils;
 import org.apache.samza.SamzaException;
 import org.apache.samza.PartitionChangeException;
 import org.apache.samza.config.ClusterManagerConfig;
 import org.apache.samza.config.Config;
+import org.apache.samza.config.JavaStorageConfig;
 import org.apache.samza.config.JavaSystemConfig;
 import org.apache.samza.config.JobConfig;
 import org.apache.samza.config.MapConfig;
@@ -37,6 +40,7 @@ import org.apache.samza.metrics.JmxServer;
 import org.apache.samza.metrics.MetricsRegistryMap;
 import org.apache.samza.serializers.model.SamzaObjectMapper;
 import org.apache.samza.system.StreamMetadataCache;
+import org.apache.samza.system.StreamSpec;
 import org.apache.samza.system.SystemAdmin;
 import org.apache.samza.system.SystemStream;
 import org.apache.samza.util.SystemClock;
@@ -185,6 +189,7 @@ public class ClusterBasedJobCoordinator {
       //initialize JobCoordinator state
       log.info("Starting Cluster Based Job Coordinator");
 
+      createChangeLogStreams(config, jobModelManager.jobModel().maxChangeLogStreamPartitions);
       containerProcessManager.start();
       partitionMonitor.start();
 
@@ -240,6 +245,40 @@ public class ClusterBasedJobCoordinator {
   private JobModelManager buildJobModelManager(Config coordinatorSystemConfig, MetricsRegistryMap registry)  {
     JobModelManager jobModelManager = JobModelManager.apply(coordinatorSystemConfig, registry);
     return jobModelManager;
+  }
+
+  public void createChangeLogStreams(Config config, Integer partitionCount) {
+    JavaStorageConfig storageConfig = new JavaStorageConfig(config);
+    Map<String, SystemStream> storeNameSystemStreamMapping =
+        storageConfig.getStoreNames()
+            .stream()
+            .filter(name -> StringUtils.isNotBlank(storageConfig.getChangelogStream(name)))
+            .collect(Collectors.toMap(name -> name,
+                name -> Util.getObj(storageConfig.getChangelogStream(name))));
+
+    JavaSystemConfig systemConfig = new JavaSystemConfig(config);
+    Map<String, SystemAdmin> systemAdminMapping = systemConfig.getSystemAdmins();
+    storeNameSystemStreamMapping.forEach((storeName, systemStream)->{
+      SystemAdmin systemAdmin = systemAdminMapping.get(systemStream.getSystem());
+      if (systemAdmin == null) {
+        throw new SamzaException(String.format("Changelog on store %s uses system %s, which is missing from the configuration.", storeName, systemStream.getSystem()));
+      }
+
+      StreamSpec changelogSpec = StreamSpec.createChangeLogStreamSpec(systemStream.getStream(), systemStream.getSystem(), partitionCount);
+      if (systemAdmin.createStream(changelogSpec)) {
+        log.info(String.format("Created changelog stream %s.", systemStream.getStream());
+      } else {
+        log.info(String.format("Changelog stream %s already exists.",systemStream.getStream());
+      }
+      systemAdmin.validateStream(changelogSpec);
+
+      if (storageConfig.getAccessLogEnabled(storeName)) {
+        String accesslogStream = storageConfig.getAccessLogStream(systemStream.getStream());
+        StreamSpec accesslogSpec = new StreamSpec(accesslogStream, accesslogStream, systemStream.getSystem(), partitionCount);
+        systemAdmin.createStream(accesslogSpec);
+        systemAdmin.validateStream(accesslogSpec);
+      }
+    });
   }
 
   private StreamPartitionCountMonitor getPartitionCountMonitor(Config config) {

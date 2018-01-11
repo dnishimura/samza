@@ -120,6 +120,14 @@ public abstract class AbstractCoordinatorStreamManager {
     return source;
   }
 
+  protected CoordinatorStreamSystemProducer getCoordinatorStreamProducer() {
+    return coordinatorStreamProducer;
+  }
+
+  protected CoordinatorStreamSystemConsumer getCoordinatorStreamConsumer() {
+    return coordinatorStreamConsumer;
+  }
+
   /**
    * Registers a consumer and a producer. Every subclass should implement it's logic for registration.<br><br>
    * Registering a single consumer and a single producer can be done with {@link AbstractCoordinatorStreamManager#registerCoordinatorStreamConsumer()}
