@@ -16,17 +16,23 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.samza.startpoint;
+package org.apache.samza.metadatastore;
 
+import java.util.concurrent.ConcurrentHashMap;
 import org.apache.samza.config.Config;
-import org.apache.samza.metadatastore.MetadataStore;
-import org.apache.samza.metadatastore.MetadataStoreFactory;
 import org.apache.samza.metrics.MetricsRegistry;
 
 
-public class MockMetadataStoreFactory implements MetadataStoreFactory {
+/**
+ * Factory for an in-memory {@link MetadataStore}. Not intended for use in production.
+ */
+public class InMemoryMetadataStoreFactory implements MetadataStoreFactory {
+
+  private static final ConcurrentHashMap<String, InMemoryMetadataStore> NAMESPACED_STORES = new ConcurrentHashMap<>();
+
   @Override
   public MetadataStore getMetadataStore(String namespace, Config config, MetricsRegistry metricsRegistry) {
-    return new MockMetadataStore();
+    NAMESPACED_STORES.putIfAbsent(namespace, new InMemoryMetadataStore());
+    return NAMESPACED_STORES.get(namespace);
   }
 }
