@@ -18,6 +18,7 @@
  */
 package org.apache.samza.startpoint;
 
+import org.apache.samza.checkpoint.SamzaOffset;
 import org.apache.samza.system.SystemStreamPartition;
 
 
@@ -37,7 +38,7 @@ public abstract class StartpointCustom extends Startpoint {
   }
 
   @Override
-  public void apply(SystemStreamPartition systemStreamPartition, StartpointVisitor startpointVisitor) {
-    startpointVisitor.visit(systemStreamPartition, this);
+  public SamzaOffset apply(SystemStreamPartition systemStreamPartition, StartpointVisitor startpointVisitor) {
+    return startpointVisitor.visit(systemStreamPartition, this);
   }
 }

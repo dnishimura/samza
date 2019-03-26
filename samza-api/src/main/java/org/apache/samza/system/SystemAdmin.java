@@ -23,6 +23,8 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
+import org.apache.samza.startpoint.Startpoint;
+import org.apache.samza.startpoint.StartpointVisitor;
 
 
 /**
@@ -62,6 +64,10 @@ public interface SystemAdmin {
    *         requested in the parameter set.
    */
   Map<String, SystemStreamMetadata> getSystemStreamMetadata(Set<String> streamNames);
+
+  default StartpointVisitor getStartpointVisitor() {
+    return null;
+  }
 
   /**
    * Fetch metadata from a system for a set of SSPs.

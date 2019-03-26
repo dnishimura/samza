@@ -146,7 +146,7 @@ class TaskInstance(
     systemStreamPartitions.foreach(systemStreamPartition => {
       val startingOffset = getStartingOffset(systemStreamPartition)
       val startpoint = offsetManager.getStartpoint(taskName, systemStreamPartition).getOrElse(null)
-      consumerMultiplexer.register(systemStreamPartition, startingOffset, startpoint)
+      consumerMultiplexer.register(systemStreamPartition, startingOffset)
       metrics.addOffsetGauge(systemStreamPartition, () =>
           offsetManager.getLastProcessedOffset(taskName, systemStreamPartition).orNull
         )
@@ -299,7 +299,7 @@ class TaskInstance(
           val startingOffset = getStartingOffset(incomingMessageSsp)
 
           val system = incomingMessageSsp.getSystem
-          others.getSystemAdmin(system).offsetComparator(envelope.getOffset, startingOffset) match {
+          others.getSystemAdmin(system).offsetComparator(envelope.getOffset, startingOffset.getOffset) match {
             case null => {
               info("offsets in " + system + " is not comparable. Set all SystemStreamPartitions to caught-up")
               ssp2CaughtupMapping(incomingMessageSsp) = true // not comparable

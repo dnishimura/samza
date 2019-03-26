@@ -31,6 +31,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import org.apache.samza.Partition;
 import org.apache.samza.checkpoint.Checkpoint;
 import org.apache.samza.checkpoint.OffsetManager;
+import org.apache.samza.checkpoint.SamzaOffset;
 import org.apache.samza.container.SamzaContainerMetrics;
 import org.apache.samza.container.TaskInstance;
 import org.apache.samza.container.TaskInstanceExceptionHandler;
@@ -655,8 +656,8 @@ public class TestAsyncRunLoop {
 
     when(offsetManager.getLastProcessedOffset(taskName1, ssp1)).thenReturn(Option.apply("3"));
     when(offsetManager.getLastProcessedOffset(taskName2, ssp2)).thenReturn(Option.apply("0"));
-    when(offsetManager.getStartingOffset(taskName1, ssp1)).thenReturn(Option.apply(IncomingMessageEnvelope.END_OF_STREAM_OFFSET));
-    when(offsetManager.getStartingOffset(taskName2, ssp2)).thenReturn(Option.apply("1"));
+    when(offsetManager.getStartingOffset(taskName1, ssp1)).thenReturn(Option.apply(new SamzaOffset(IncomingMessageEnvelope.END_OF_STREAM_OFFSET)));
+    when(offsetManager.getStartingOffset(taskName2, ssp2)).thenReturn(Option.apply(new SamzaOffset("1")));
     when(offsetManager.getStartpoint(anyObject(), anyObject())).thenReturn(Option.empty());
 
     TaskInstance taskInstance1 = createTaskInstance(mockStreamTask1, taskName1, ssp1, offsetManager, consumers);

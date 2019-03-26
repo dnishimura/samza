@@ -19,6 +19,7 @@
 package org.apache.samza.startpoint;
 
 import com.google.common.base.MoreObjects;
+import org.apache.samza.checkpoint.SamzaOffset;
 import org.apache.samza.system.SystemStreamPartition;
 
 
@@ -35,8 +36,8 @@ public final class StartpointOldest extends Startpoint {
   }
 
   @Override
-  public void apply(SystemStreamPartition systemStreamPartition, StartpointVisitor startpointVisitor) {
-    startpointVisitor.visit(systemStreamPartition, this);
+  public SamzaOffset apply(SystemStreamPartition systemStreamPartition, StartpointVisitor startpointVisitor) {
+    return startpointVisitor.visit(systemStreamPartition, this);
   }
 
   @Override

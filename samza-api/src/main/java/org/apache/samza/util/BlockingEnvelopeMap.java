@@ -104,14 +104,6 @@ public abstract class BlockingEnvelopeMap implements SystemConsumer {
   }
 
   /**
-   * {@inheritDoc}
-   */
-  @Override
-  public void register(SystemStreamPartition systemStreamPartition, Startpoint startpoint) {
-    initializeInternalStateForSSP(systemStreamPartition);
-  }
-
-  /**
    * Initializes the metrics and in-memory buffer for the {@param systemStreamPartition}.
    * @param systemStreamPartition represents the input system stream partition.
    */

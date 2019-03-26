@@ -22,6 +22,7 @@ import com.google.common.base.MoreObjects;
 import com.google.common.base.Objects;
 import java.time.Instant;
 import org.apache.samza.annotation.InterfaceStability;
+import org.apache.samza.checkpoint.SamzaOffset;
 import org.apache.samza.system.SystemStreamPartition;
 
 
@@ -55,7 +56,7 @@ public abstract class Startpoint {
    * @param systemStreamPartition The {@link SystemStreamPartition} needed to register with the {@link StartpointVisitor}
    * @param startpointVisitor The visitor to register with.
    */
-  public abstract void apply(SystemStreamPartition systemStreamPartition, StartpointVisitor startpointVisitor);
+  public abstract SamzaOffset apply(SystemStreamPartition systemStreamPartition, StartpointVisitor startpointVisitor);
 
   @Override
   public String toString() {

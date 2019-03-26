@@ -23,7 +23,7 @@ package org.apache.samza.container
 import java.util.Collections
 
 import org.apache.samza.Partition
-import org.apache.samza.checkpoint.{Checkpoint, OffsetManager}
+import org.apache.samza.checkpoint.{Checkpoint, OffsetManager, SamzaOffset}
 import org.apache.samza.context.{TaskContext => _, _}
 import org.apache.samza.job.model.TaskModel
 import org.apache.samza.metrics.Counter
@@ -106,7 +106,7 @@ class TestTaskInstance extends AssertionsForJUnit with MockitoSugar {
     when(this.metrics.processes).thenReturn(processesCounter)
     val messagesActuallyProcessedCounter = mock[Counter]
     when(this.metrics.messagesActuallyProcessed).thenReturn(messagesActuallyProcessedCounter)
-    when(this.offsetManager.getStartingOffset(TASK_NAME, SYSTEM_STREAM_PARTITION)).thenReturn(Some("0"))
+    when(this.offsetManager.getStartingOffset(TASK_NAME, SYSTEM_STREAM_PARTITION)).thenReturn(Option(new SamzaOffset("0")));
     val envelope = new IncomingMessageEnvelope(SYSTEM_STREAM_PARTITION, "0", null, null)
     val coordinator = mock[ReadableCoordinator]
     this.taskInstance.process(envelope, coordinator)
@@ -155,7 +155,7 @@ class TestTaskInstance extends AssertionsForJUnit with MockitoSugar {
   def testOffsetsAreUpdatedOnProcess() {
     when(this.metrics.processes).thenReturn(mock[Counter])
     when(this.metrics.messagesActuallyProcessed).thenReturn(mock[Counter])
-    when(this.offsetManager.getStartingOffset(TASK_NAME, SYSTEM_STREAM_PARTITION)).thenReturn(Some("2"))
+    when(this.offsetManager.getStartingOffset(TASK_NAME, SYSTEM_STREAM_PARTITION)).thenReturn(Option(new SamzaOffset("2")))
     this.taskInstance.process(new IncomingMessageEnvelope(SYSTEM_STREAM_PARTITION, "4", null, null),
       mock[ReadableCoordinator])
     verify(this.offsetManager).update(TASK_NAME, SYSTEM_STREAM_PARTITION, "4")
@@ -186,7 +186,7 @@ class TestTaskInstance extends AssertionsForJUnit with MockitoSugar {
     when(this.metrics.processes).thenReturn(processesCounter)
     val messagesActuallyProcessedCounter = mock[Counter]
     when(this.metrics.messagesActuallyProcessed).thenReturn(messagesActuallyProcessedCounter)
-    when(this.offsetManager.getStartingOffset(TASK_NAME, SYSTEM_STREAM_PARTITION)).thenReturn(Some("5"))
+    when(this.offsetManager.getStartingOffset(TASK_NAME, SYSTEM_STREAM_PARTITION)).thenReturn(Option(new SamzaOffset("5")))
     when(this.systemAdmin.offsetComparator(any(), any())).thenAnswer(new Answer[Integer] {
       override def answer(invocation: InvocationOnMock): Integer = {
         val offset1 = invocation.getArgumentAt(0, classOf[String])
@@ -260,7 +260,7 @@ class TestTaskInstance extends AssertionsForJUnit with MockitoSugar {
   @Test
   def testInitCaughtUpMapping() {
     val offsetManagerMock = mock[OffsetManager]
-    when(offsetManagerMock.getStartingOffset(anyObject(), anyObject())).thenReturn(Option("42"))
+    when(offsetManagerMock.getStartingOffset(anyObject(), anyObject())).thenReturn(Option(new SamzaOffset("42")))
     val cacheMock = mock[StreamMetadataCache]
     val systemStreamMetadata = mock[SystemStreamMetadata]
     when(cacheMock.getSystemStreamMetadata(anyObject(), anyBoolean()))

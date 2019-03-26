@@ -24,6 +24,7 @@ import java.util.concurrent.ConcurrentHashMap
 
 import org.apache.samza.SamzaException
 import org.apache.samza.annotation.InterfaceStability
+import org.apache.samza.checkpoint.SamzaOffset.OffsetSource
 import org.apache.samza.config.StreamConfig.Config2Stream
 import org.apache.samza.config.{Config, JavaSystemConfig}
 import org.apache.samza.container.TaskName
@@ -217,13 +218,41 @@ class OffsetManager(
   }
 
   /**
-   * Get the starting offset for a SystemStreamPartition. This is the offset
-   * where a SamzaContainer begins reading from when it starts up.
-   */
-  def getStartingOffset(taskName: TaskName, systemStreamPartition: SystemStreamPartition) = {
-    startingOffsets.get(taskName) match {
-      case Some(sspToOffsets) => sspToOffsets.get(systemStreamPartition)
+    * Get the starting offset for a SystemStreamPartition. This is the offset
+    * where a SamzaContainer begins reading from when it starts up.
+    */
+  def getStartingOffset(taskName: TaskName, systemStreamPartition: SystemStreamPartition): Option[SamzaOffset] = {
+    val systemAdmin = systemAdmins.getSystemAdmin(systemStreamPartition.getSystem)
+
+    val checkpointOffset = startingOffsets.get(taskName) match {
+      case Some(sspToOffsets) => Option(new SamzaOffset(OffsetSource.FromCheckpoint, sspToOffsets.get(systemStreamPartition).getOrElse(null)))
       case None => None
+    }
+
+    val startpoint = getStartpoint(taskName, systemStreamPartition)
+
+    startpoint match {
+      case Some(startpoint) => {
+        val startpointVisitor = Option(startpoint) match {
+          case Some(startpoint) => systemAdmin.getStartpointVisitor
+          case None => null
+        }
+        var resolvedOffset = checkpointOffset
+        try {
+          resolvedOffset = Option(startpointVisitor) match {
+            case Some(startpointVisitor) => {
+              Option(startpoint.apply(systemStreamPartition, startpointVisitor))
+            }
+            case None => checkpointOffset
+          }
+        } catch {
+          case e: UnsupportedOperationException => {
+            warn("Unsupported startpoint: " + startpoint.toString + ". Resolving back to checkpoint.")
+          }
+        }
+        resolvedOffset
+      }
+      case None => checkpointOffset
     }
   }
 

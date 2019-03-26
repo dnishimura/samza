@@ -46,6 +46,7 @@ import java.util.stream.Collectors;
 import org.apache.commons.collections4.MapUtils;
 import org.apache.samza.Partition;
 import org.apache.samza.SamzaException;
+import org.apache.samza.checkpoint.SamzaOffset;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.StorageConfig;
 import org.apache.samza.config.TaskConfig;
@@ -660,7 +661,7 @@ public class ContainerStorageManager {
       }
 
       // register startingOffset with the sysConsumer and register a metric for it
-      sideInputSystemConsumers.register(ssp, startingOffset, null);
+      sideInputSystemConsumers.register(ssp, new SamzaOffset(SamzaOffset.OffsetSource.FromSideInput, startingOffset));
       taskInstanceMetrics.get(sideInputStorageManagers.get(ssp).getTaskName()).addOffsetGauge(
           ssp, ScalaJavaUtil.toScalaFunction(() -> sideInputStorageManagers.get(ssp).getLastProcessedOffset(ssp)));
 

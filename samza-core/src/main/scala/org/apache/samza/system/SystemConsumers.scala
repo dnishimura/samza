@@ -28,12 +28,14 @@ import java.util.HashMap
 import java.util.HashSet
 import java.util.Queue
 import java.util.Set
+
 import scala.collection.JavaConverters._
 import org.apache.samza.serializers.SerdeManager
 import org.apache.samza.util.{Logging, TimerUtil}
-import org.apache.samza.startpoint.Startpoint
+import org.apache.samza.startpoint.{Startpoint, StartpointVisitor}
 import org.apache.samza.system.chooser.MessageChooser
 import org.apache.samza.SamzaException
+import org.apache.samza.checkpoint.SamzaOffset
 
 
 object SystemConsumers {
@@ -118,7 +120,7 @@ class SystemConsumers (
   /**
    * Mapping from the {@see SystemStreamPartition} to the registered offsets.
    */
-  private val sspToRegisteredOffsets = new HashMap[SystemStreamPartition, String]()
+  private val sspToRegisteredOffsets = new HashMap[SystemStreamPartition, SamzaOffset]()
 
   /**
    * A buffer of incoming messages grouped by SystemStreamPartition. These
@@ -198,10 +200,10 @@ class SystemConsumers (
   }
 
 
-  def register(systemStreamPartition: SystemStreamPartition, offset: String, startpoint: Startpoint) {
+  def register(systemStreamPartition: SystemStreamPartition, offset: SamzaOffset) {
     debug("Registering stream: %s, %s" format (systemStreamPartition, offset))
 
-    if (IncomingMessageEnvelope.END_OF_STREAM_OFFSET.equals(offset)) {
+    if (IncomingMessageEnvelope.END_OF_STREAM_OFFSET.equals(offset.getOffset)) {
       info("Stream : %s is already at end of stream" format (systemStreamPartition))
       endOfStreamSSPs.add(systemStreamPartition)
       return
@@ -216,18 +218,14 @@ class SystemConsumers (
     // and needs to decide what's the lowest starting offset for an SSP that spans across multiple tasks so it knows
     // to keep the highest priority on the SSP starting from the lowest starting offset until the SSP is fully
     // bootstrapped to the UPCOMING offset. The offset here is ignored otherwise.
-    chooser.register(systemStreamPartition, offset)
+    chooser.register(systemStreamPartition, offset.getOffset)
 
     try {
       val consumer = consumers(systemStreamPartition.getSystem)
-      if (startpoint != null) {
-        consumer.register(systemStreamPartition, startpoint)
-      } else {
-        val existingOffset = sspToRegisteredOffsets.get(systemStreamPartition)
-        val systemAdmin = systemAdmins.getSystemAdmin(systemStreamPartition.getSystem)
-        if (existingOffset == null || systemAdmin.offsetComparator(existingOffset, offset) > 0) {
-          sspToRegisteredOffsets.put(systemStreamPartition, offset)
-        }
+      val existingOffset = sspToRegisteredOffsets.get(systemStreamPartition)
+      val systemAdmin = systemAdmins.getSystemAdmin(systemStreamPartition.getSystem)
+      if (existingOffset == null || systemAdmin.offsetComparator(existingOffset.getOffset, offset.getOffset) > 0) {
+        sspToRegisteredOffsets.put(systemStreamPartition, offset)
       }
     } catch {
       case e: NoSuchElementException => throw new SystemConsumersException("can't register " + systemStreamPartition.getSystem + "'s consumer.", e)

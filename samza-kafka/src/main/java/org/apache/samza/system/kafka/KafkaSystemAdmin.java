@@ -20,7 +20,10 @@
 package org.apache.samza.system.kafka;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
@@ -42,15 +45,22 @@ import org.apache.kafka.clients.admin.NewTopic;
 import org.apache.kafka.clients.admin.TopicDescription;
 import org.apache.kafka.clients.consumer.Consumer;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
+import org.apache.kafka.clients.consumer.OffsetAndTimestamp;
 import org.apache.kafka.common.PartitionInfo;
 import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.common.errors.TopicExistsException;
 import org.apache.samza.Partition;
 import org.apache.samza.SamzaException;
+import org.apache.samza.checkpoint.SamzaOffset;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.KafkaConfig;
 import org.apache.samza.config.MapConfig;
 import org.apache.samza.config.SystemConfig;
+import org.apache.samza.startpoint.StartpointOldest;
+import org.apache.samza.startpoint.StartpointSpecific;
+import org.apache.samza.startpoint.StartpointTimestamp;
+import org.apache.samza.startpoint.StartpointUpcoming;
+import org.apache.samza.startpoint.StartpointVisitor;
 import org.apache.samza.system.StreamSpec;
 import org.apache.samza.system.StreamValidationException;
 import org.apache.samza.system.SystemAdmin;
@@ -684,6 +694,11 @@ public class KafkaSystemAdmin implements SystemAdmin {
         .collect(Collectors.toSet());
   }
 
+  @Override
+  public StartpointVisitor getStartpointVisitor() {
+    return new KafkaStartpointVisitor(metadataConsumer);
+  }
+
   /**
    * Container for metadata about offsets.
    */
@@ -709,6 +724,77 @@ public class KafkaSystemAdmin implements SystemAdmin {
 
     private Map<SystemStreamPartition, String> getUpcomingOffsets() {
       return upcomingOffsets;
+    }
+  }
+
+  public static class KafkaStartpointVisitor implements StartpointVisitor {
+    private final Consumer metadataConsumer;
+
+    KafkaStartpointVisitor(Consumer metadataConsumer) {
+      this.metadataConsumer = metadataConsumer;
+    }
+
+    @Override
+    public SamzaOffset visit(SystemStreamPartition systemStreamPartition, StartpointSpecific startpointSpecific) {
+      return asSamzaOffset(startpointSpecific.getSpecificOffset());
+    }
+
+    @Override
+    public SamzaOffset visit(SystemStreamPartition systemStreamPartition, StartpointTimestamp startpointTimestamp) {
+      Long timestampInStartpoint = startpointTimestamp.getTimestampOffset();
+      TopicPartition topicPartition = KafkaSystemConsumer.toTopicPartition(systemStreamPartition);
+      Map<TopicPartition, Long> topicPartitionsToTimeStamps = ImmutableMap.of(topicPartition, timestampInStartpoint);
+
+      // Look up the offset by timestamp.
+      LOG.info("Looking up the offsets of the topic partition: {} by timestamp: {}.", topicPartition,
+          timestampInStartpoint);
+      Map<TopicPartition, OffsetAndTimestamp> topicPartitionToOffsetTimestamps;
+      synchronized (metadataConsumer) {
+        topicPartitionToOffsetTimestamps = metadataConsumer.offsetsForTimes(topicPartitionsToTimeStamps);
+      }
+
+      SamzaOffset offset;
+      // If the timestamp does not exist for the partition, then seek the consumer to end.
+      if (topicPartitionToOffsetTimestamps.get(topicPartition) == null) {
+        offset = visit(systemStreamPartition, new StartpointUpcoming());
+      } else {
+        OffsetAndTimestamp offsetAndTimeStamp = topicPartitionToOffsetTimestamps.get(topicPartition);
+        offset = asSamzaOffset(String.valueOf(offsetAndTimeStamp.offset()));
+      }
+
+      return offset;
+    }
+
+    @Override
+    public SamzaOffset visit(SystemStreamPartition systemStreamPartition, StartpointOldest startpointOldest) {
+      TopicPartition topicPartition = KafkaSystemConsumer.toTopicPartition(systemStreamPartition);
+      Collection<TopicPartition> topicPartitions = ImmutableList.of(topicPartition);
+      LOG.info("Seeking the kafka consumer to the first offset for the topic partition: {}.", topicPartitions);
+
+      Map<TopicPartition, Long> upcomingOffsetsWithLong;
+      synchronized (metadataConsumer) {
+        upcomingOffsetsWithLong = metadataConsumer.beginningOffsets(ImmutableSet.of(topicPartition));
+      }
+
+      return asSamzaOffset(String.valueOf(upcomingOffsetsWithLong));
+    }
+
+    @Override
+    public SamzaOffset visit(SystemStreamPartition systemStreamPartition, StartpointUpcoming startpointUpcoming) {
+      TopicPartition topicPartition = KafkaSystemConsumer.toTopicPartition(systemStreamPartition);
+      Collection<TopicPartition> topicPartitions = ImmutableList.of(topicPartition);
+      LOG.info("Seeking the kafka consumer to the first offset for the topic partition: {}.", topicPartitions);
+
+      Map<TopicPartition, Long> upcomingOffsetsWithLong;
+      synchronized (metadataConsumer) {
+        upcomingOffsetsWithLong = metadataConsumer.endOffsets(ImmutableSet.of(topicPartition));
+      }
+
+      return asSamzaOffset(String.valueOf(upcomingOffsetsWithLong));
+    }
+
+    private SamzaOffset asSamzaOffset(String offset) {
+      return new SamzaOffset(SamzaOffset.OffsetSource.FromStartpoint, offset);
     }
   }
 }
