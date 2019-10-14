@@ -231,6 +231,7 @@ class ClientHelper(conf: Configuration) extends Logging {
 
     appCtx.setAMContainerSpec(containerCtx)
     appCtx.setApplicationType(ClientHelper.applicationType)
+    appCtx.setKeepContainersAcrossApplicationAttempts(true)
     info("submitting application request for %s" format appId.get)
     yarnClient.submitApplication(appCtx)
     appId
