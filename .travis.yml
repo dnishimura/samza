@@ -27,7 +27,7 @@ addons:
       - master
       - travis-sonarcloud
 jdk:
-  - oraclejdk8
+  - openjdk8
 
 script:
   ## travis_wait increases build idle-wait time from 10 minutes to 40 minutes.
